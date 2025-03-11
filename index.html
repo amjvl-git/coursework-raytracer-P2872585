@@ -13,7 +13,7 @@ Your browser does not support the HTML canvas tag.
 // Simple vector in 3D with numbers for x, y and z
 class Vec3 {
 
-    constructor (x, y, z) {
+    constructor(x, y, z) {
         this.x = x;
         this.y = y;
         this.z = z;
@@ -72,10 +72,9 @@ console.log("dot product: " + v1.dot(v2));
 console.log("normalized v1: " + v1.normalised().toString());
 
 // A sphere in 3D space. Has centre, radius and colour all of which are Vec3s
-class Sphere
-{
-    constructor (centre, radius, colour)
-    {
+class Sphere {
+
+    constructor(centre, radius, colour) {
         this.centre = centre
         this.radius = radius
         this.colour = colour
@@ -85,20 +84,35 @@ class Sphere
     // a quadratic equation and return the t value of the ray for that point
     // If two solutions exist return the minus solution
     // If no solutions exist return -1
-    rayIntersects(ray)  {}
+    rayIntersects(ray) {
+        // need to get line from ray
+        const offsetFromRay = centre.minus(ray.origin);
+        const a = ray.direction.dot(ray.direction);
+        const b = -2.0 * ray.direction.dot(offsetFromRay);
+        const c = offsetFromRay.dot(offsetFromRay) - this.radius * this.radius;
+        const discriminant = b * b - 4 * a * c;
+        if (discriminant < 0) return -1;
+        if (discriminant > 0) {
+            return (-b - Math.sqrt(discriminant)) / (2 * a);
+        }
+
+        return (-b + Math.sqrt(discriminant)) / (2 * a);
+    }
 }
 
 // Ray which has an origin and direction, both are Vec3s
-class Ray
-{
-    constructor (origin, direction)
-    {
+class Ray {
+
+    constructor(origin, direction) {
         this.origin = origin
         this.direction = direction
     }
 
     // Calculate and return the point in space (a Vec3) for this ray for the given value of t
-    pointAt(t) {}
+    pointAt(t) {
+        // Add towards the direction by t
+        return this.origin.add(this.direction.scale(t));
+    }
 }
 
 // The result of casting a ray into our scene
@@ -106,10 +120,9 @@ class Ray
 // Normal is the normal unit vector of the sphere at the intersection point
 // t is the t value along the ray where the intersection point is.  This value should, be -1 when the ray hits nothing
 // SphereIndex is the array index of the sphere hit by the ray
-class RayCastResult
-{
-    constructor(position, normal, t, sphereIndex)
-    {
+class RayCastResult {
+
+    constructor(position, normal, t, sphereIndex) {
         this.position = position
         this.normal = normal
         this.t = t
@@ -118,37 +131,45 @@ class RayCastResult
 }
 
 // Calculate the intersection point and normal when a ray hits a sphere. Returns a RayCastResult.
-function hit(ray, t, sphereIndex) {}
+function hit(ray, t, sphereIndex) {
+    const sphere = spheres[sphereIndex];
+}
 
 // Return a RayCastResult when a ray misses everything in the scene
-function miss()
-{
+function miss() {
     return new RayCastResult(new Vec3(0,0,0), new Vec3(0,0,0), -1, -1)
 }
 
 // Check whether a ray hits anything in the scene and return a RayCast Result
-function traceRay(ray)
-{
+function traceRay(ray) {
+    let hitResult = null;
+    for (let i = 0; i < spheres.length; i++) {
+        const sphere = spheres[i];
+        const intersection = ray.rayIntersects(sphere);
+        if (!ray.rayIntersects(sphere)) continue;
+        hitResult = hit(ray, intersection, i);
+    }
+
+    if (hitSphere != null) {
+        // hit(ray, ??, )
+    }
     return miss()
 }
 
 // Calculate and return the background colour based on the ray
-function backgroundColour(ray)
-{
-        return new Vec3(0.3,0.5,0.9) // Blue
+function backgroundColour(ray) {
+    return new Vec3(0.3,0.5,0.9) // Blue
 }
 
 // Returns the colour the ray should have as a Vec3 with RGB values in [0,1]
-function rayColour(ray) 
-{
+function rayColour(ray)  {
     let castResult = traceRay(ray)
     if(castResult.t < 0) return backgroundColour(ray)
     return new Vec3(1,0,0) // Red
 }
 
 // Sets a pixel at (x, y) in the canvas with an RGB Vec3
-function setPixel(x, y, colour)
-{
+function setPixel(x, y, colour) {
     var c = document.getElementById("canvas")
     var ctx = c.getContext("2d")
     ctx.fillStyle = "rgba("+colour.x+","+colour.y+","+colour.z+","+1+")"
@@ -159,21 +180,21 @@ const spheres = new Array(
     new Sphere(new Vec3(0,0,-1), 0.3, new Vec3(1,0,0)),       // Red sphere
     new Sphere(new Vec3(0,0.2,-0.8), 0.15, new Vec3(0,0,1)),  // Blue sphere
     new Sphere(new Vec3(0,-100.5,-1), 100, new Vec3(0,1,0))   // Big green sphere
-    );
-
+);
 
 // Main code
-let imageWidth = document.getElementById("canvas").width
-let imageHeight = document.getElementById("canvas").height
-let aspectRatio = document.getElementById("canvas").height / document.getElementById("canvas").width
+const imageWidth = document.getElementById("canvas").width
+const imageHeight = document.getElementById("canvas").height
+const aspectRatio = document.getElementById("canvas").height / document.getElementById("canvas").width
 
 let colour = new Vec3(0,0,0)
 
-for (let i = 0; i < imageWidth; i++)
-{
-    for (let j = 0; j <= imageHeight; j++)
-    {
-        setPixel(i,j,colour)
+const camera = new Vec3(0, 0, 0);
+
+// Loop through each pixel and raytrace to it from the camera to get the colour result
+for (let x = 0; x < imageWidth; x++) {
+    for (let y = 0; y <= imageHeight; y++) {
+        setPixel(x, y, colour)
     }
 }
 
