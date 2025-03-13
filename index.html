@@ -86,7 +86,7 @@ class Sphere {
     // If no solutions exist return -1
     rayIntersects(ray) {
         // need to get line from ray
-        const offsetFromRay = centre.minus(ray.origin);
+        const offsetFromRay = this.centre.minus(ray.origin);
         const a = ray.direction.dot(ray.direction);
         const b = -2.0 * ray.direction.dot(offsetFromRay);
         const c = offsetFromRay.dot(offsetFromRay) - this.radius * this.radius;
@@ -131,6 +131,7 @@ class RayCastResult {
 // Calculate the intersection point and normal when a ray hits a sphere. Returns a RayCastResult.
 function hit(ray, t, sphereIndex) {
     const sphere = spheres[sphereIndex];
+    return new RayCastResult(null, null, t, sphereIndex);
 }
 
 // Return a RayCastResult when a ray misses everything in the scene
@@ -141,28 +142,41 @@ function miss() {
 // Check whether a ray hits anything in the scene and return a RayCast Result
 function traceRay(ray) {
     let hitResult = null;
+    console.log(spheres);
     for (let i = 0; i < spheres.length; i++) {
         const sphere = spheres[i];
-        const intersection = ray.rayIntersects(sphere);
-        if (!ray.rayIntersects(sphere)) continue;
-        hitResult = hit(ray, intersection, i);
+        //console.log(sphere);
+        const intersections = sphere.rayIntersects(ray);
+        if (intersections >= 0) {
+            return hit(ray, intersections, i);
+        }
+        //const intersection = sphere.rayIntersects(sphere);
+        //if (!ray.rayIntersects(sphere)) continue;
+        //hitResult = hit(ray, intersection, i);
     }
 
-    if (hitSphere != null) {
+    //if (hitSphere != null) {
         // hit(ray, ??, )
-    }
+    //}
     return miss()
 }
 
 // Calculate and return the background colour based on the ray
 function backgroundColour(ray) {
-    return new Vec3(0.3,0.5,0.9) // Blue
+    const white = new Vec3(1, 1, 1);
+    const blue = new Vec3(0.3, 0.5, 0.9); // Blue
+    const t = 0.5 * (ray.direction.y + 1);
+    return white.scale(1 - t).add(blue.scale(t));
 }
 
 // Returns the colour the ray should have as a Vec3 with RGB values in [0,1]
 function rayColour(ray)  {
     let castResult = traceRay(ray)
-    if(castResult.t < 0) return backgroundColour(ray)
+    if (castResult.t < 0) {
+        // No hit, use background
+        return backgroundColour(ray);
+    }
+    // Hit!
     return new Vec3(1,0,0) // Red
 }
 
@@ -184,19 +198,25 @@ const spheres = new Array(
 const imageWidth = document.getElementById("canvas").width
 const imageHeight = document.getElementById("canvas").height
 const aspectRatio = document.getElementById("canvas").height / document.getElementById("canvas").width
+const viewportWidth = 2;
+const viewportHeight = viewportWidth * aspectRatio;
+const focalLength = 1.0;
 
-let colour = new Vec3(0,0,0)
+const colour = new Vec3(0, 0, 0);
 
 const camera = new Vec3(0, 0, 0);
+const horizontal = new Vec3(viewportWidth, 0, 0);
+const vertical = new Vec3(0, viewportHeight, 0);
+const lowerLeftCorner = camera.minus(horizontal.scale(0.5)).minus(vertical.scale(0.5)).minus(new Vec3(0, 0, focalLength));
 
 // Loop through each pixel and raytrace to it from the camera to get the colour result
 for (let x = 0; x < imageWidth; x++) {
     for (let y = 0; y <= imageHeight; y++) {
         const u = x / (imageWidth - 1);
         const v = y / (imageHeight - 1);
-        colour.x = u * 255;
-        colour.y = v * 255;
-        setPixel(x, y, colour);
+
+        const ray = new Ray(camera, lowerLeftCorner.add(horizontal.scale(u)).add(vertical.scale(v)).minus(camera));
+        setPixel(x, y, rayColour(ray).scale(255));
     }
 }
 
