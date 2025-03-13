@@ -92,11 +92,9 @@ class Sphere {
         const c = offsetFromRay.dot(offsetFromRay) - this.radius * this.radius;
         const discriminant = b * b - 4 * a * c;
         if (discriminant < 0) return -1;
-        if (discriminant > 0) {
-            return (-b - Math.sqrt(discriminant)) / (2 * a);
-        }
 
-        return (-b + Math.sqrt(discriminant)) / (2 * a);
+        // Don't need + result: "Because our camera is facing negative z and doesn't move the negative solution is always closest"
+        return (-b - Math.sqrt(discriminant)) / (2 * a);
     }
 }
 
@@ -194,7 +192,11 @@ const camera = new Vec3(0, 0, 0);
 // Loop through each pixel and raytrace to it from the camera to get the colour result
 for (let x = 0; x < imageWidth; x++) {
     for (let y = 0; y <= imageHeight; y++) {
-        setPixel(x, y, colour)
+        const u = x / (imageWidth - 1);
+        const v = y / (imageHeight - 1);
+        colour.x = u * 255;
+        colour.y = v * 255;
+        setPixel(x, y, colour);
     }
 }
 
