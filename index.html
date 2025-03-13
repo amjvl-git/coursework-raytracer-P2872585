@@ -56,7 +56,11 @@ class Vec3 {
 
     // Return a normalised version of this vector
     normalised() {
-        return this.scale(1 / this.magnitude());
+        const magnitude = this.magnitude();
+        if (magnitude == 0) { // Avoid erroneous division by 0
+            return new Vec3(0, 0, 0);
+        }
+        return this.scale(1 / magnitude);
     }
 
     toString() {
@@ -129,9 +133,13 @@ class RayCastResult {
 }
 
 // Calculate the intersection point and normal when a ray hits a sphere. Returns a RayCastResult.
-function hit(ray, t, sphereIndex) {
+function hit(ray, x, sphereIndex) {
     const sphere = spheres[sphereIndex];
-    return new RayCastResult(null, null, t, sphereIndex);
+    const intersectionPoint = ray.pointAt(x).minus(sphere.centre);
+    //console.log("point: " + intersectionPoint);
+    const normal = intersectionPoint.normalised();
+    //console.log("normal: " + normal);
+    return new RayCastResult(intersectionPoint, normal, x, sphereIndex);
 }
 
 // Return a RayCastResult when a ray misses everything in the scene
@@ -141,8 +149,7 @@ function miss() {
 
 // Check whether a ray hits anything in the scene and return a RayCast Result
 function traceRay(ray) {
-    let hitResult = null;
-    console.log(spheres);
+    //console.log(spheres);
     for (let i = 0; i < spheres.length; i++) {
         const sphere = spheres[i];
         //console.log(sphere);
@@ -176,8 +183,10 @@ function rayColour(ray)  {
         // No hit, use background
         return backgroundColour(ray);
     }
-    // Hit!
-    return new Vec3(1,0,0) // Red
+
+    // Hit! Colour depending on where the ray hit the sphere, normalised.
+    return castResult.normal;
+    //return new Vec3(1,0,0) // Red
 }
 
 // Sets a pixel at (x, y) in the canvas with an RGB Vec3
