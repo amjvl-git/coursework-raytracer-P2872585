@@ -185,6 +185,8 @@ function rayColour(ray) {
         return backgroundColour(ray);
     }
 
+    const ambient = 0.05;
+
     const reflect = castResult.normal.scale(2).scale(castResult.normal.dot(sunlightDirection));
     const reflectDirection = sunlightDirection.minus(reflect).normalised();
     const viewDirection = camera.minus(castResult.position).normalised();
@@ -194,14 +196,14 @@ function rayColour(ray) {
     // Hit! Colour depending on where the ray hit the sphere, normalised.
     const albedo = spheres[castResult.sphereIndex].colour;
     const diffuse = Math.max(castResult.normal.dot(inverseSunlightDirection), 0);
-    const colour = albedo.scale(0.05 + diffuse + gamma * 0.8);
-    //const colour = albedo.scale(diffuse);
+    
+    let colour = albedo.scale(ambient + diffuse + gamma * 0.8);
 
-    // Check for shadow
+    // Check for shadow by tracing to the sun
     const reflectionRay = traceRay(new Ray(castResult.position, inverseSunlightDirection));
     //console.log("refl: " + reflectionRay.t);
     if (reflectionRay.t >= 0) {
-        return colour.scale(0.4);
+        colour = colour.scale(0.4);
     } else {
         //console.log("position: " + castResult.position);
     }
