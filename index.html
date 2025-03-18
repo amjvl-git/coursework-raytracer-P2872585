@@ -150,22 +150,23 @@ function miss() {
 // Check whether a ray hits anything in the scene and return a RayCast Result
 function traceRay(ray) {
     //console.log(spheres);
+    let closestIntersect = Number.MAX_VALUE;
+    let closestSphere = -1;
     for (let i = 0; i < spheres.length; i++) {
         const sphere = spheres[i];
         //console.log(sphere);
-        const intersections = sphere.rayIntersects(ray);
-        if (intersections >= 0) {
-            return hit(ray, intersections, i);
+        const xIntersect = sphere.rayIntersects(ray);
+        if (xIntersect > 0 && xIntersect < closestIntersect) {
+            closestIntersect = xIntersect;
+            closestSphere = i;
         }
-        //const intersection = sphere.rayIntersects(sphere);
-        //if (!ray.rayIntersects(sphere)) continue;
-        //hitResult = hit(ray, intersection, i);
     }
 
-    //if (hitSphere != null) {
-        // hit(ray, ??, )
-    //}
-    return miss()
+    if (closestSphere < 0) {
+        return miss();
+    }
+
+    return hit(ray, closestIntersect, closestSphere);
 }
 
 // Calculate and return the background colour based on the ray
@@ -184,11 +185,27 @@ function rayColour(ray)  {
         return backgroundColour(ray);
     }
 
+    const dot = castResult.normal.scale(2).multiply(castResult.normal).dot(inverseSunlightDirection);
+    const reflection = new Vec3(inverseSunlightDirection.x - dot, inverseSunlightDirection.y - dot, inverseSunlightDirection.z - dot);
+    const viewDirection = camera.minus(castResult.position);
+    const dotReflect = viewDirection.dot(reflection);
+    const gamma = Math.pow(Math.max(dotReflect, 0), 0.8);
+
     // Hit! Colour depending on where the ray hit the sphere, normalised.
     const albedo = spheres[castResult.sphereIndex].colour;
     const diffuse = Math.max(castResult.normal.dot(inverseSunlightDirection), 0);
-    const colour = albedo.scale(diffuse);
-    return colour;
+    const colour = albedo.scale(0.05 + diffuse + gamma * 0.8);
+    //const colour = albedo.scale(diffuse);
+
+    // Check for shadow
+    const reflectionRay = traceRay(new Ray(castResult.position, inverseSunlightDirection));
+    //console.log("refl: " + reflectionRay.t);
+    if (reflectionRay.t >= 0) {
+        return colour.scale(0.4);
+    }
+
+    // Sqrt for gamma correction
+    return new Vec3(Math.sqrt(colour.x), Math.sqrt(colour.y), Math.sqrt(colour.z));
     //return new Vec3(1,0,0) // Red
 }
 
