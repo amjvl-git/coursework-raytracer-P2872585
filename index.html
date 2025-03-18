@@ -68,13 +68,6 @@ class Vec3 {
     }
 }
 
-const v1 = new Vec3(1, 2, 3);
-const v2 = new Vec3(4, 5, 6);
-
-console.log("v1 mag: " + v1.magnitude());
-console.log("dot product: " + v1.dot(v2));
-console.log("normalized v1: " + v1.normalised().toString());
-
 // A sphere in 3D space. Has centre, radius and colour all of which are Vec3s
 class Sphere {
 
@@ -136,9 +129,7 @@ class RayCastResult {
 function hit(ray, x, sphereIndex) {
     const sphere = spheres[sphereIndex];
     const intersectionPoint = ray.pointAt(x);
-    //console.log("point: " + intersectionPoint);
     const normal = intersectionPoint.minus(sphere.centre).normalised();
-    //console.log("normal: " + normal);
     return new RayCastResult(intersectionPoint, normal, x, sphereIndex);
 }
 
@@ -149,12 +140,10 @@ function miss() {
 
 // Check whether a ray hits anything in the scene and return a RayCast Result
 function traceRay(ray) {
-    //console.log(spheres);
     let closestIntersect = Number.MAX_VALUE;
     let closestSphere = -1;
     for (let i = 0; i < spheres.length; i++) {
         const sphere = spheres[i];
-        //console.log(sphere);
         const xIntersect = sphere.rayIntersects(ray);
         if (xIntersect > 0 && xIntersect < closestIntersect) {
             closestIntersect = xIntersect;
@@ -179,7 +168,7 @@ function backgroundColour(ray) {
 
 // Returns the colour the ray should have as a Vec3 with RGB values in [0,1]
 function rayColour(ray) {
-    let castResult = traceRay(ray)
+    const castResult = traceRay(ray)
     if (castResult.t < 0) {
         // No hit, use background
         return backgroundColour(ray);
@@ -201,16 +190,12 @@ function rayColour(ray) {
 
     // Check for shadow by tracing to the sun
     const reflectionRay = traceRay(new Ray(castResult.position, inverseSunlightDirection));
-    //console.log("refl: " + reflectionRay.t);
     if (reflectionRay.t >= 0) {
         colour = colour.scale(0.4);
-    } else {
-        //console.log("position: " + castResult.position);
     }
 
     // Sqrt for gamma correction
     return new Vec3(Math.sqrt(colour.x), Math.sqrt(colour.y), Math.sqrt(colour.z));
-    //return new Vec3(1,0,0) // Red
 }
 
 // Sets a pixel at (x, y) in the canvas with an RGB Vec3
