@@ -135,9 +135,9 @@ class RayCastResult {
 // Calculate the intersection point and normal when a ray hits a sphere. Returns a RayCastResult.
 function hit(ray, x, sphereIndex) {
     const sphere = spheres[sphereIndex];
-    const intersectionPoint = ray.pointAt(x).minus(sphere.centre);
+    const intersectionPoint = ray.pointAt(x);
     //console.log("point: " + intersectionPoint);
-    const normal = intersectionPoint.normalised();
+    const normal = intersectionPoint.minus(sphere.centre).normalised();
     //console.log("normal: " + normal);
     return new RayCastResult(intersectionPoint, normal, x, sphereIndex);
 }
@@ -178,18 +178,18 @@ function backgroundColour(ray) {
 }
 
 // Returns the colour the ray should have as a Vec3 with RGB values in [0,1]
-function rayColour(ray)  {
+function rayColour(ray) {
     let castResult = traceRay(ray)
     if (castResult.t < 0) {
         // No hit, use background
         return backgroundColour(ray);
     }
 
-    const dot = castResult.normal.scale(2).multiply(castResult.normal).dot(inverseSunlightDirection);
-    const reflection = new Vec3(inverseSunlightDirection.x - dot, inverseSunlightDirection.y - dot, inverseSunlightDirection.z - dot);
-    const viewDirection = camera.minus(castResult.position);
-    const dotReflect = viewDirection.dot(reflection);
-    const gamma = Math.pow(Math.max(dotReflect, 0), 0.8);
+    const reflect = castResult.normal.scale(2).scale(castResult.normal.dot(sunlightDirection));
+    const reflectDirection = sunlightDirection.minus(reflect).normalised();
+    const viewDirection = camera.minus(castResult.position).normalised();
+    const dotReflect = viewDirection.dot(reflectDirection);
+    const gamma = Math.pow(Math.max(dotReflect, 0), 32);
 
     // Hit! Colour depending on where the ray hit the sphere, normalised.
     const albedo = spheres[castResult.sphereIndex].colour;
@@ -202,6 +202,8 @@ function rayColour(ray)  {
     //console.log("refl: " + reflectionRay.t);
     if (reflectionRay.t >= 0) {
         return colour.scale(0.4);
+    } else {
+        //console.log("position: " + castResult.position);
     }
 
     // Sqrt for gamma correction
