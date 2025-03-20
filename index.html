@@ -79,10 +79,6 @@ class Vec3 {
         return Math.abs(this.x) < eps && Math.abs(this.y) < eps && Math.abs(this.z) < eps;
     }
 
-    static random() {
-        return new Vec3(Math.random(), Math.random(), Math.random());
-    }
-
     static random(min, max) {
         return new Vec3(Math.random() * (max - min) + min, Math.random() * (max - min) + min, Math.random() * (max - min) + min);
     }
@@ -95,15 +91,6 @@ class Vec3 {
                 return vec.div(Math.sqrt(lengthSquared));
             }
         }
-    }
-
-    static randomOnHemisphere(normal) {
-        const onUnitSphere = this.randomUnitVector();
-        //console.log("sphere: " + onUnitSphere);
-        if (onUnitSphere.dot(normal) > 0) {
-            return onUnitSphere;
-        }
-        return onUnitSphere.scale(-1);
     }
 
     toString() {
@@ -138,7 +125,6 @@ class Metal extends Material {
 
     scatter(ray, traceResult) {
         let reflected = this.reflect(ray.direction, traceResult.normal);
-        if (false) return new Ray(traceResult.position, reflected);
         reflected = reflected.add(Vec3.randomUnitVector().scale(this.fuzz));
         if (reflected.dot(traceResult.normal) > 0) {
             return new Ray(traceResult.position, reflected);
