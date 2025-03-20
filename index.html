@@ -7,10 +7,11 @@
         Your browser does not support the HTML canvas tag.
     </canvas>
 
+    <p>To move the camera, change the XYZ components and click "Render".</p>
     <input type="button" name="render" value="Render" onclick="renderScene();" />
-    <input type="number" id="cameraX" value="0" />
-    <input type="number" id="cameraY" value="0" />
-    <input type="number" id="cameraZ" value="0" />
+    <input type="number" id="cameraX" value="0" />X
+    <input type="number" id="cameraY" value="0" />Y
+    <input type="number" id="cameraZ" value="0" />Z
 
 <script>
 
@@ -44,6 +45,10 @@ class Vec3 {
         return new Vec3(this.x * scalar, this.y * scalar, this.z * scalar);
     }
 
+    div(scalar) {
+        return new Vec3(this.x / scalar, this.y / scalar, this.z / scalar);
+    }
+
     // Calculate the dot product of this vector with the other and return the result
     dot(other) {
         return this.x * other.x + this.y * other.y + this.z * other.z;
@@ -68,18 +73,93 @@ class Vec3 {
         return this.scale(1 / magnitude);
     }
 
+    closeToZero() {
+        // Return true if the vector is close to zero in all dimensions.
+        const eps = 1e-8;
+        return Math.abs(this.x) < eps && Math.abs(this.y) < eps && Math.abs(this.z) < eps;
+    }
+
+    static random() {
+        return new Vec3(Math.random(), Math.random(), Math.random());
+    }
+
+    static random(min, max) {
+        return new Vec3(Math.random() * (max - min) + min, Math.random() * (max - min) + min, Math.random() * (max - min) + min);
+    }
+
+    static randomUnitVector() {
+        while (true) {
+            const vec = Vec3.random(-1, 1);
+            const lengthSquared = vec.magnitudeSquared();
+            if (1e-160 < lengthSquared && lengthSquared <= 1) {
+                return vec.div(Math.sqrt(lengthSquared));
+            }
+        }
+    }
+
+    static randomOnHemisphere(normal) {
+        const onUnitSphere = this.randomUnitVector();
+        //console.log("sphere: " + onUnitSphere);
+        if (onUnitSphere.dot(normal) > 0) {
+            return onUnitSphere;
+        }
+        return onUnitSphere.scale(-1);
+    }
+
     toString() {
         return "x: " + this.x + ", y: " + this.y + ", z: " + this.z;
+    }
+}
+
+class Material {
+
+    scatter(ray, traceResult) {
+        return null;
+    }
+}
+
+class Lambertian extends Material {
+    scatter(ray, traceResult) {
+        let scatterDirection = traceResult.normal.add(Vec3.randomUnitVector());
+        // Catch degenerate scatter direction
+        if (scatterDirection.closeToZero()) {
+            scatterDirection = traceResult.normal;
+        }
+        return new Ray(traceResult.position, scatterDirection);
+    }
+}
+
+class Metal extends Material {
+
+    constructor(fuzz = 0) {
+        super();
+        this.fuzz = fuzz < 1 ? fuzz : 1;
+    }
+
+    scatter(ray, traceResult) {
+        let reflected = this.reflect(ray.direction, traceResult.normal);
+        if (false) return new Ray(traceResult.position, reflected);
+        reflected = reflected.add(Vec3.randomUnitVector().scale(this.fuzz));
+        if (reflected.dot(traceResult.normal) > 0) {
+            return new Ray(traceResult.position, reflected);
+        }
+        return null;
+    }
+
+    reflect(v, n) {
+        // v - 2*dot(v,n)*n
+        return v.minus(n.scale(v.dot(n)).scale(2));
     }
 }
 
 // A sphere in 3D space. Has centre, radius and colour all of which are Vec3s
 class Sphere {
 
-    constructor(centre, radius, colour) {
+    constructor(centre, radius, colour, material) {
         this.centre = centre
         this.radius = radius
         this.colour = colour
+        this.material = material
     }
 
     // Calculate the point on the sphere  where the ray intersects using
@@ -168,15 +248,42 @@ function backgroundColour(ray) {
     const white = new Vec3(1, 1, 1);
     const blue = new Vec3(0.3, 0.5, 0.9); // Blue
     const t = 0.5 * (ray.direction.y + 1);
-    return white.scale(1 - t).add(blue.scale(t));
+    const colour = white.scale(1 - t).add(blue.scale(t));
+    return colour;
+}
+
+function linearToGamma(component) {
+    if (component > 0) {
+        // Sqrt for gamma correction
+        return Math.sqrt(component);
+    }
+
+    return 0;
 }
 
 // Returns the colour the ray should have as a Vec3 with RGB values in [0,1]
-function rayColour(ray) {
+function rayColour(ray, depth) {
+    // If we've exceeded the ray bounce limit, no more light is gathered.
+    if (depth <= 0) {
+        return new Vec3(0, 0, 0);
+    }
+
     const castResult = traceRay(ray)
-    if (castResult.t < 0) {
+    if (castResult.t < 0.001) {
         // No hit, use background
-        return backgroundColour(ray);
+        const background = backgroundColour(ray);
+        // We only want to gamma correct once we have the final colour
+        if (depth != maxRayDepth) {
+            return background;
+        }
+        return new Vec3(linearToGamma(background.x), linearToGamma(background.y), linearToGamma(background.z));
+    }
+
+    const sphere = spheres[castResult.sphereIndex];
+
+    const scattered = sphere.material.scatter(ray, castResult);
+    if (scattered == null) {
+        return new Vec3(0, 0, 0);
     }
 
     const ambient = 0.05;
@@ -188,7 +295,7 @@ function rayColour(ray) {
     const gamma = Math.pow(Math.max(dotReflect, 0), 32);
 
     // Hit! Colour depending on where the ray hit the sphere, normalised.
-    const albedo = spheres[castResult.sphereIndex].colour;
+    const albedo = sphere.colour;
     const diffuse = Math.max(castResult.normal.dot(inverseSunlightDirection), 0);
 
     let colour = albedo.scale(ambient + diffuse + gamma * 0.8);
@@ -199,8 +306,13 @@ function rayColour(ray) {
         colour = colour.scale(0.4);
     }
 
-    // Sqrt for gamma correction
-    return new Vec3(Math.sqrt(colour.x), Math.sqrt(colour.y), Math.sqrt(colour.z));
+    const scatteredColour = colour.multiply(rayColour(scattered, depth - 1));
+    // We only want to gamma correct once we have the final colour
+    if (depth != maxRayDepth) {
+        return scatteredColour;
+    } else {
+        return new Vec3(linearToGamma(scatteredColour.x), linearToGamma(scatteredColour.y), linearToGamma(scatteredColour.z));
+    }
 }
 
 // Sets a pixel at (x, y) in the canvas with an RGB Vec3
@@ -211,10 +323,14 @@ function setPixel(x, y, colour) {
     ctx.fillRect(x, c.height - y, 1, 1)
 }
 
+// To better show the reflection, I have adjusted the colours
+// You can apply a fuzziness to the metal material, too
+// I have added another sphere
 const spheres = new Array(
-    new Sphere(new Vec3(0, 0, -1), 0.3, new Vec3(1, 0, 0)),       // Red sphere
-    new Sphere(new Vec3(0, 0.2, -0.8), 0.15, new Vec3(0, 0, 1)),  // Blue sphere
-    new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0))   // Big green sphere
+    new Sphere(new Vec3(0, 0, -1), 0.3, new Vec3(1, 0.2, 0), new Metal()),       // Red ("orange") sphere
+    new Sphere(new Vec3(0, 0.2, -0.8), 0.15, new Vec3(0, 0.6, 1), new Metal(0)),  // Blue sphere
+    new Sphere(new Vec3(0.75, 0.5, -1.25), 0.3, new Vec3(1, 0.1, 0.1), new Metal(0.2)), // Second red FUZZY sphere
+    new Sphere(new Vec3(0, -100.5, -1), 100, new Vec3(0, 1, 0), new Lambertian())   // Big green sphere
 );
 
 // Main code
@@ -234,6 +350,7 @@ const sunlightDirection = new Vec3(-1.1, -1.3, -1.5).normalised();
 const inverseSunlightDirection = sunlightDirection.scale(-1);
 
 const pixelSamples = 50;
+const maxRayDepth = 50;
 
 renderScene();
 
@@ -260,7 +377,7 @@ function renderScene() {
 
                 const pixelSample = lowerLeftCorner.add(horizontal.scale(u)).add(vertical.scale(v));
                 const ray = new Ray(camera, pixelSample.minus(camera));
-                pixelColour = pixelColour.add(rayColour(ray).scale(255));
+                pixelColour = pixelColour.add(rayColour(ray, maxRayDepth).scale(255));
             }
 
             setPixel(x, y, pixelColour.scale(1 / pixelSamples));
